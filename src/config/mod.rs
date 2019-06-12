@@ -12,6 +12,12 @@ use nom::combinator::opt;
 use nom::error::{ParseError, VerboseError};
 use nom::branch::alt;
 
+#[derive(Debug, PartialEq)]
+enum Section {
+    Input(Block),
+    Filter(Block),
+    Output(Block),
+}
 
 #[derive(Debug, PartialEq)]
 struct Plugin {
@@ -35,11 +41,11 @@ struct Condition{
     block_else: Block,
 }
 #[derive(Debug, PartialEq)]
-enum Unit {
+enum Statement {
     Plugin(Plugin),
     Condition(Condition),
 }
-type Block = Vec<Unit>;
+type Block = Vec<Statement>;
 
 type Param = (String, Value);
 
@@ -59,18 +65,15 @@ fn params(input: &str) -> IResult<&str, Vec<Param>>{
 
 }
 fn plugin(input: &str) -> IResult<&str, Plugin>{
-    map(
-        tuple((
+    let (input, (name, params)) = tuple((
             preceded(sp, snake_case),
-            preceded(sp, params)
-        )),
-        |t| Plugin{name: t.0, params: t.1}
-    )(input)
+            preceded(sp, params)))(input)?;
+    Ok((input, Plugin{name, params}))
 }
-fn unit(input: &str) -> IResult<&str, Unit> {
+fn statement(input: &str) -> IResult<&str, Statement> {
     alt((
-        map(plugin, Unit::Plugin),
-        map(condition, Unit::Condition),
+        map(plugin, Statement::Plugin),
+        map(condition, Statement::Condition),
 
     ))(input)
 
@@ -79,7 +82,7 @@ fn block(input: &str) -> IResult<&str, Block> {
     map(
         delimited (
             preceded(sp, tag("{")),
-            preceded(sp, many0(unit)),
+            preceded(sp, many0(statement)),
             preceded(sp, tag("}")),
         ), |plugins| {
             let mut block = Block::new();
@@ -93,11 +96,11 @@ fn block(input: &str) -> IResult<&str, Block> {
 fn condition(input: &str) -> IResult<&str, Condition> {
     map(
         tuple((
-            preceded(sp, tag("if")),
-            preceded(sp, take_until("{")),
-            preceded(sp, block),
-            preceded(sp, many0(block_else_if)),
-            preceded(sp, opt(block_else))
+            preceded(sp, tag("if")), // r.0
+            preceded(sp, take_until("{")), // r.1 if expression
+            preceded(sp, block), // r.2 block_if
+            preceded(sp, many0(block_else_if)), // r3. block_if_else
+            preceded(sp, opt(block_else)) // r.4 block_if_else
 
         )),
         |r| {
@@ -115,12 +118,8 @@ fn condition(input: &str) -> IResult<&str, Condition> {
 
 }
 fn block_else(input: &str) -> IResult<&str, Block> {
-    map(
-        tuple((
-            preceded(sp, tag("else")),
-            preceded(sp, block)
-        )),
-        |r| r.1
+    preceded(preceded(sp, tag("else")),
+        preceded(sp, block)
     )(input)
 }
 fn block_else_if(input: &str) -> IResult<&str, ElseIf> {
@@ -139,6 +138,17 @@ fn block_else_if(input: &str) -> IResult<&str, ElseIf> {
 
         }
     )(input)
+}
+fn read_section (input: &str) -> IResult<&str, Section>{
+    preceded(sp, alt((
+        map(preceded(tag("input"), block), Section::Input),
+        map(preceded(tag("filter"), block), Section::Filter),
+        //map(preceded(tag("output"), block), Section::Output),
+
+    )))(input)
+}
+fn read_config(input: &str) -> IResult<&str, Vec<Section>>{
+    many0(read_section)(input)
 }
 #[test]
 fn test_param_entry(){
@@ -228,8 +238,16 @@ if EXPRESSION1 {
 }
 "#;
 let res = condition(s).unwrap();
+std::dbg!(res);
 
+}
+#[test]
+fn test_read_config(){
 
+    use std::fs;
+    let s = fs::read_to_string("test.conf").unwrap();
+    let r = read_section(&s).unwrap().1;
+    std::dbg!(r);
 }
 // todo:
 // filter ->

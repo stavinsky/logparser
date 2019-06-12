@@ -8,7 +8,7 @@ use nom::combinator::map;
 use nom::number::complete::float;
 use nom::multi::many0;
 use crate::types::Value;
-
+use nom::multi::separated_list;
 pub fn sp<'a, E: ParseError<&'a str>>(i: &'a str) -> IResult<&'a str, &'a str, E> {
   let chars = " \t\r\n";
   take_while(move |c| chars.contains(c))(i)
@@ -35,7 +35,7 @@ pub fn string(input: &str) -> IResult<&str, String> {
         tag("\""),
         map(
             escaped_transform(
-                is_not("\"\t\r\n\'\\"), '\\',
+                is_not("\"\t\r\n\\"), '\\',
                 |i:&str| alt!(i,
                     tag!("r") => { |_| "\r" }
                     | tag!("n") => { |_| "\n" }
@@ -44,6 +44,13 @@ pub fn string(input: &str) -> IResult<&str, String> {
                     | tag!("\"") => { |_| "\"" }
                     | tag!("\'") => { |_| "\'" }
                     | tag!("%") => { |_| "\\%" }
+                    | tag!(".") => { |_| "\\." }
+                    | tag!("s") => { |_| "\\s" }
+                    | tag!("d") => { |_| "\\d" }
+                    | tag!(":") => { |_| "\\:" }
+                    | tag!("(") => { |_| "\\(" }
+                    | tag!(")") => { |_| "\\)" }
+
                 )
             ),
             String::from
@@ -54,7 +61,7 @@ pub fn string(input: &str) -> IResult<&str, String> {
 fn list(input: &str) -> IResult<&str, Vec<Value>> {
     delimited(
         preceded(sp, tag("[")),
-        preceded(sp, many0(value)),
+        separated_list(preceded(sp, tag(",")), value),
         preceded(sp, tag("]")),
     )(input)
 }
@@ -157,7 +164,7 @@ fn test_string_backslash() {
 
 #[test]
 fn test_list() {
-    let s = r#"[ "test1"  "test2"]"#;
+    let s = r#"[ "test1",  "test2"]"#;
     let mut expected = Vec::new();
     expected.push(Value::Str(String::from("test1")));
     expected.push(Value::Str(String::from("test2")));
