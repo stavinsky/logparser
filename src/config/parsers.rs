@@ -4,14 +4,21 @@ use nom::error::{ParseError, VerboseError};
 use nom::branch::alt;
 use nom::bytes::complete::{is_not, tag, take_while, escaped_transform};
 use nom::sequence::{preceded, separated_pair, delimited};
-use nom::combinator::map;
+use nom::combinator::{map, opt};
 use nom::number::complete::float;
 use nom::multi::many0;
 use crate::types::Value;
 use nom::multi::separated_list;
-pub fn sp<'a, E: ParseError<&'a str>>(i: &'a str) -> IResult<&'a str, &'a str, E> {
+fn comment<'a, E: ParseError<&'a str>>(input: &'a str) -> IResult<&'a str, &'a str, E> {
+    preceded(tag("#"), is_not("\n"))(input)
+}
+pub fn s<'a, E: ParseError<&'a str>>(i: &'a str) -> IResult<&'a str, &'a str, E> {
   let chars = " \t\r\n";
   take_while(move |c| chars.contains(c))(i)
+}
+pub fn sp<'a, E: ParseError<&'a str>>(i: &'a str) -> IResult<&'a str, &'a str, E> {
+    let (i, _) = opt(preceded(s, comment))(i)?;
+    s(i)
 }
 pub fn snake_case(input: &str) -> IResult<&str, String>{
     map(
