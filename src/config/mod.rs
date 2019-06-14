@@ -1,4 +1,5 @@
 pub mod parsers;
+pub mod types;
 use crate::types::Value;
 use parsers::{value, sp, snake_case};
 use std::collections::HashMap;
@@ -11,43 +12,16 @@ use nom::bytes::complete::take_until;
 use nom::combinator::opt;
 use nom::error::{ParseError, VerboseError};
 use nom::branch::alt;
-
-#[derive(Debug, PartialEq)]
-enum Section {
-    Input(Block),
-    Filter(Block),
-    Output(Block),
-}
-
-#[derive(Debug, PartialEq)]
-struct Plugin {
-    params: Vec<Param>,
-    name: String,
-}
-#[derive(Debug, PartialEq)]
-struct ConditionExpression {
-    raw_condition: String
-}
-#[derive(Debug, PartialEq)]
-struct ElseIf {
-   condition: ConditionExpression,
-   block: Block,
-}
-#[derive(Debug, PartialEq)]
-struct Condition{
-    condition: ConditionExpression,
-    block_if: Block,
-    block_else_if: Vec<ElseIf>,
-    block_else: Block,
-}
-#[derive(Debug, PartialEq)]
-enum Statement {
-    Plugin(Plugin),
-    Condition(Condition),
-}
-type Block = Vec<Statement>;
-
-type Param = (String, Value);
+use crate::config::types::{
+    Plugin,
+    Condition,
+    ConditionExpression,
+    Statement,
+    Block,
+    Param,
+    Section,
+    ElseIf,
+};
 
 fn param_entry(input: &str) -> IResult<&str, Param>{
     separated_pair(
@@ -68,7 +42,7 @@ fn plugin(input: &str) -> IResult<&str, Plugin>{
     let (input, (name, params)) = tuple((
             preceded(sp, snake_case),
             preceded(sp, params)))(input)?;
-    Ok((input, Plugin{name, params}))
+    Ok((input, Plugin::new(name, params)))
 }
 fn statement(input: &str) -> IResult<&str, Statement> {
     alt((
@@ -103,17 +77,7 @@ fn condition(input: &str) -> IResult<&str, Condition> {
             preceded(sp, opt(block_else)) // r.4 block_if_else
 
         )),
-        |r| {
-            Condition{
-                condition: ConditionExpression {
-                    raw_condition: String::from(r.1),
-                },
-                block_if: r.2,
-                block_else_if: r.3,
-                block_else: r.4.unwrap_or_default(),
-            }
-
-        }
+        |r| Condition::new(r.1, r.2, r.3, r.4.unwrap_or_default())
     )(input)
 
 }
@@ -130,20 +94,14 @@ fn block_else_if(input: &str) -> IResult<&str, ElseIf> {
             preceded(sp, take_until("{")),
             preceded(sp, block),
         )),
-        |r| ElseIf {
-            condition: ConditionExpression{
-                raw_condition: r.2.to_owned()
-            },
-            block: r.3
-
-        }
+        |r| ElseIf::new(r.2, r.3)
     )(input)
 }
 fn read_section (input: &str) -> IResult<&str, Section>{
     preceded(sp, alt((
         map(preceded(tag("input"), block), Section::Input),
         map(preceded(tag("filter"), block), Section::Filter),
-        //map(preceded(tag("output"), block), Section::Output),
+        map(preceded(tag("output"), block), Section::Output),
 
     )))(input)
 }
@@ -199,10 +157,7 @@ grok {
     ));
     assert_eq!(
         plugin(&s).unwrap().1,
-        Plugin {
-            name: String::from("grok"),
-            params: expected
-        }
+        Plugin::new(String::from("grok"), expected)
     );
 }
 #[test]
