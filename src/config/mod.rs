@@ -21,6 +21,7 @@ use crate::config::types::{
     Param,
     Section,
     ElseIf,
+    Parser,
 };
 
 fn param_entry(input: &str) -> IResult<&str, Param>{
@@ -105,8 +106,13 @@ fn read_section (input: &str) -> IResult<&str, Section>{
 
     )))(input)
 }
-fn read_config(input: &str) -> IResult<&str, Vec<Section>>{
-    many0(read_section)(input)
+pub fn read_config(input: &str) -> IResult<&str, Parser>{
+    let mut parser = Parser::new();
+    let (input, sections) = many0(read_section)(input)?;
+    for section in sections {
+        parser.add_section(section);
+    }
+    Ok((input, parser))
 }
 #[test]
 fn test_param_entry(){
