@@ -1,4 +1,4 @@
-use crate::config::parsers::{sp, value, snake_case};
+use crate::parser::parsers::{sp, value, snake_case};
 use crate::types::Value;
 use nom::branch::alt;
 use nom::combinator::map;
@@ -203,7 +203,7 @@ fn test_rpn_1 () {
 fn test_rpn_should_panic_right_paren () {
     let s = "1.0 == 3.0) AND (2 == 6 OR 4 == 7)";
     let tokens = tokenize(s).unwrap().1;
-    let rpn = to_postfix(&tokens);
+    let _rpn = to_postfix(&tokens);
 
 }
 #[test]
@@ -211,7 +211,7 @@ fn test_rpn_should_panic_right_paren () {
 fn test_rpn_should_panic_left_paren () {
     let s = "(1.0 == 3.0 AND (2 == 6 OR 4 == 7)";
     let tokens = tokenize(s).unwrap().1;
-    let rpn = to_postfix(&tokens);
+    let _rpn = to_postfix(&tokens);
 
 }
 

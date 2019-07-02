@@ -1,3 +1,5 @@
+#![allow(dead_code, unused_imports)]
+
 extern crate grok;
 //extern crate eval;
 extern crate parking_lot;
@@ -11,12 +13,12 @@ use std::sync::{Arc};
 //mod cache;
 //mod helper;
 //use helper::Helper;
-mod config;
+mod parser;
 #[macro_use]
 extern crate nom;
 mod eval;
 mod types;
-
+use parser::read_config;
 fn main() {
 
 
