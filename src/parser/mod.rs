@@ -13,7 +13,7 @@ use nom::combinator::opt;
 use nom::error::{ParseError, VerboseError};
 use nom::branch::alt;
 use crate::parser::types::{
-    Plugin,
+//    Plugin,
     Condition,
     ConditionExpression,
     Statement,
@@ -23,8 +23,8 @@ use crate::parser::types::{
     ElseIf,
     Parser,
 };
-use types::PluginRegistry;
-
+use crate::plugins::PluginRegistry;
+use crate::plugins::Plugin;
 fn param_entry(input: &str) -> IResult<&str, Param>{
     separated_pair(
         preceded(sp, snake_case),
@@ -41,7 +41,7 @@ fn params(input: &str) -> IResult<&str, Vec<Param>>{
 
 }
 
-fn plugin(r: PluginRegistry) -> impl Fn(&str) -> IResult<&str, Plugin > {
+fn plugin(r: PluginRegistry) -> impl Fn(&str) -> IResult<&str, Box<dyn Plugin>> {
     move |input: &str| {
         use nom::Err;
         use nom::error::ErrorKind;
@@ -219,24 +219,22 @@ if EXPRESSION1 {
     }
 }
 "#;
-    use types::Func;
     use std::rc::Rc;
+    use crate::plugins::Mutate;
     let r = PluginRegistry::new();
-    let func = Rc::new(|_| {});
-    r.register_plugin("mutate", func);
+    r.register_plugin("mutate", Rc::new(|params|Mutate::new(params)));
     let res = condition(r)(s).unwrap();
     std::dbg!(res);
 
 }
 #[test]
 fn test_read_config(){
-    use types::Func;
     use std::rc::Rc;
+    use crate::plugins::{Mutate, Grok, Date};
     let r = PluginRegistry::new();
-    let func = Rc::new(|_| {});
-    r.register_plugin("mutate", func.clone());
-    r.register_plugin("grok", func.clone());
-    r.register_plugin("date", func.clone());
+    r.register_plugin("mutate", Rc::new(|params|Mutate::new(params)));
+    r.register_plugin("grok", Rc::new(|params|Grok::new(params)));
+    r.register_plugin("date", Rc::new(|params|Date::new(params)));
 
     use std::fs;
     let s = fs::read_to_string("test.conf").unwrap();

@@ -9,7 +9,7 @@ extern crate parking_lot;
 //use std::io::BufRead;
 //use eval::{Expr, to_value};
 use std::sync::{Arc};
-
+mod plugins;
 //mod cache;
 //mod helper;
 //use helper::Helper;
